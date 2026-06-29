@@ -257,12 +257,13 @@ function connectFirebase(){
     localStorage.setItem(CFGKEY,JSON.stringify(cfg));
     document.getElementById('syncDot').classList.add('on');
     document.getElementById('syncLabel').textContent='同期中';
+    let firstLoad=true;
     db.ref('routineTimer').on('value',snap=>{
       if(snap.exists()){appData=snap.val();}else{appData=defaultData();db.ref('routineTimer').set(appData);}
       ensureData();
-      renderAll();
+      if(firstLoad){firstLoad=false;launchApp();}
+      else{renderAll();}
     });
-    launchApp();
   }catch(e){alert('Firebase接続エラー: '+e.message);}
 }
 function startLocal(){
@@ -336,9 +337,10 @@ function getCiBySlot(slot){
 function startTimer(slot){
   const ci=getCiBySlot(slot);
   const c=appData.days[currentDay].cells[ci];
-  c.startedAt=Date.now();  // 開始時刻を記録
+  c.startedAt=Date.now();
   c.running=true;
-  saveData();renderGrid();
+  renderGrid(); // 即座にボタンを「中断」に切り替え
+  saveData();   // 保存（Firebaseの場合はon('value')で再描画されるが既にrenderGrid済み）
 }
 function pauseTimer(slot){
   const ci=getCiBySlot(slot);
