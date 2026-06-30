@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ルーティンタイマー">
+<title>業務用ルーティンタイマー</title>
+<style>
+:root{
+  --bg:#f5f5f0;--surface:#fff;--surface2:#f1f0ec;
+  --border:rgba(0,0,0,.12);--border2:rgba(0,0,0,.22);
+  --text:#1a1a1a;--text2:#666;--text3:#999;
+  --purple:#7F77DD;--purple-light:#EEEDFE;--purple-mid:#AFA9EC;--purple-dark:#3C3489;
+  --teal:#1D9E75;--teal-light:#E1F5EE;--teal-mid:#9FE1CB;
+  --amber:#BA7517;--amber-light:#FAEEDA;
+  --red:#E24B4A;--red-light:#FCEBEB;--red-mid:#F7C1C1;
+  --r:10px;--rs:7px;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1a1a1a;--surface:#242424;--surface2:#2e2e2e;
+    --border:rgba(255,255,255,.1);--border2:rgba(255,255,255,.2);
+    --text:#f0f0f0;--text2:#aaa;--text3:#666;
+    --purple-light:#2a2860;--purple-mid:#534AB7;--purple-dark:#a9a3ff;
+    --teal-light:#0a2e22;--amber-light:#2e1e00;--red-light:#2e0f0f;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+svg.ic{display:inline-block;vertical-align:-3px;flex-shrink:0}
+
+#setupScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.setup-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--r);padding:28px;width:100%;max-width:520px}
+.setup-card h1{font-size:17px;font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.setup-card>p{font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.5}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;color:var(--text2);margin-bottom:4px;font-weight:500}
+.field input{width:100%;padding:9px 12px;font-size:13px;border:.5px solid var(--border2);border-radius:var(--rs);background:var(--surface2);color:var(--text);font-family:inherit;outline:none}
+.field input:focus{border-color:var(--purple)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;font-size:13px;font-family:inherit;border:.5px solid var(--border2);border-radius:var(--rs);background:var(--surface);color:var(--text);cursor:pointer;transition:all .12s;font-weight:500}
+.btn:hover{filter:brightness(.95)}
+.btn.primary{background:var(--purple-light);border-color:var(--purple-mid);color:var(--purple-dark)}
+.btn.success{background:var(--teal-light);border-color:var(--teal-mid);color:var(--teal)}
+.btn.danger{background:var(--red-light);border-color:var(--red-mid);color:var(--red)}
+.btn.amber{background:var(--amber-light);border-color:#E5C27A;color:var(--amber)}
+.btn.sm{padding:4px 9px;font-size:12px}
+.btn.icon-btn{padding:4px 7px}
+.notice{font-size:11px;color:var(--text3);margin-top:12px;line-height:1.6}
+
+#mainApp{display:none;max-width:960px;margin:0 auto;padding:12px}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:.5px solid var(--border);border-radius:var(--r);padding:10px 14px;margin-bottom:10px}
+.topbar h1{font-size:15px;font-weight:600;display:flex;align-items:center;gap:7px}
+.sync-pill{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);padding:3px 10px;border:.5px solid var(--border);border-radius:20px}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--red);flex-shrink:0}
+.sync-dot.on{background:var(--teal)}
+
+/* メインタブ（スケジュール／履歴） */
+.main-tabs{display:flex;gap:0;margin-bottom:10px;background:var(--surface);border:.5px solid var(--border);border-radius:var(--r);padding:4px;width:fit-content}
+.main-tab{padding:6px 18px;border-radius:7px;font-size:13px;cursor:pointer;background:transparent;color:var(--text2);font-family:inherit;font-weight:500;border:none;transition:all .12s}
+.main-tab.active{background:var(--purple-light);color:var(--purple-dark)}
+
+/* 日付タブ */
+.date-tabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px;align-items:center}
+.tab-wrap{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.tab{padding:7px 16px;border:.5px solid var(--border);border-radius:var(--rs);font-size:13px;cursor:pointer;background:var(--surface);color:var(--text2);white-space:nowrap;font-family:inherit;font-weight:500;transition:all .12s}
+.tab.active{background:var(--purple-light);border-color:var(--purple-mid);color:var(--purple-dark)}
+.tab.past{opacity:.7}
+.tab.future{color:var(--text3)}
+.carryover-btn{padding:5px 10px;font-size:11px;white-space:nowrap}
+
+/* サマリーバー */
+.summary-bar{background:var(--surface);border:.5px solid var(--border);border-radius:var(--r);padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.summary-item{display:flex;flex-direction:column;gap:2px}
+.summary-label{font-size:10px;font-weight:600;letter-spacing:.5px;color:var(--text3)}
+.summary-value{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.summary-value.remain{color:var(--purple)}
+.summary-value.done-count{color:var(--teal)}
+.summary-progress{flex:1;min-width:120px}
+.summary-progress-bar{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-top:4px}
+.summary-progress-fill{height:100%;border-radius:3px;background:var(--purple);transition:width .5s}
+.summary-pct{font-size:11px;color:var(--text2);margin-top:2px}
+
+/* グリッド */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.cell{background:var(--surface);border:.5px solid var(--border);border-radius:var(--r);padding:12px;min-height:172px;display:flex;flex-direction:column;cursor:grab;transition:border-color .15s,opacity .15s}
+.cell:active{cursor:grabbing}
+.cell.dragging{opacity:.45}
+.cell.drag-over{border-color:var(--purple);border-width:1.5px;background:var(--purple-light)}
+.cell.done{opacity:.65;border-style:dashed}
+.cell.carried{border-color:#E5C27A;background:var(--amber-light)}
+.cell.readonly{cursor:default;opacity:.8}
+.cell-label{font-size:10px;font-weight:600;letter-spacing:.6px;color:var(--text3);margin-bottom:7px;user-select:none;display:flex;align-items:center;gap:5px}
+.carried-badge{font-size:9px;background:var(--amber-light);color:var(--amber);border:.5px solid #E5C27A;border-radius:4px;padding:1px 5px;font-weight:600}
+.task-input{flex:1;font-size:13px;color:var(--text);border:none;background:transparent;width:100%;resize:none;font-family:inherit;line-height:1.5;outline:none;min-height:44px}
+.task-input::placeholder{color:var(--text3)}
+.task-done-text{font-size:13px;color:var(--text2);flex:1;line-height:1.5}
+.task-readonly-text{font-size:13px;color:var(--text);flex:1;line-height:1.5}
+.timer-area{margin-top:8px}
+.timer-bar-wrap{height:3px;background:var(--surface2);border-radius:2px;margin-bottom:7px;overflow:hidden}
+.timer-bar-fill{height:100%;border-radius:2px;background:var(--purple)}
+.timer-display{font-size:22px;font-weight:600;letter-spacing:-1px;font-variant-numeric:tabular-nums;margin-bottom:8px;color:var(--text)}
+.timer-display.warn{color:var(--amber)}
+.timer-display.danger{color:var(--red)}
+.timer-display.done-label{font-size:14px;color:var(--teal);font-weight:500;letter-spacing:0;display:flex;align-items:center;gap:5px}
+.timer-controls{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.min-input{width:52px;font-size:12px;padding:4px 7px;border:.5px solid var(--border2);border-radius:var(--rs);background:var(--surface2);color:var(--text);font-family:inherit;text-align:center}
+.min-label{font-size:11px;color:var(--text3)}
+
+/* 履歴ビュー */
+#historyView{display:none}
+.history-day{background:var(--surface);border:.5px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:10px}
+.history-day-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;cursor:pointer}
+.history-day-title{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.history-badge{font-size:11px;padding:2px 8px;border-radius:12px;background:var(--teal-light);color:var(--teal);font-weight:600}
+.history-badge.partial{background:var(--amber-light);color:var(--amber)}
+.history-badge.none{background:var(--surface2);color:var(--text3)}
+.history-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.history-cell{background:var(--surface2);border-radius:var(--rs);padding:10px;font-size:12px}
+.history-cell.done{border-left:3px solid var(--teal)}
+.history-cell.undone{border-left:3px solid var(--border2)}
+.history-cell-task{color:var(--text);line-height:1.4;margin-bottom:4px;font-weight:500}
+.history-cell-meta{color:var(--text3);font-size:11px;display:flex;gap:6px;flex-wrap:wrap}
+.history-empty{font-size:13px;color:var(--text3);text-align:center;padding:18px}
+.chevron{font-size:16px;color:var(--text3);transition:transform .2s}
+.chevron.open{transform:rotate(180deg)}
+
+/* 繰り越しモーダル */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--r);padding:20px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto}
+.modal h2{font-size:15px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:7px}
+.modal p{font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.5}
+.carry-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:var(--rs);margin-bottom:8px;cursor:pointer;border:.5px solid transparent;transition:border-color .12s}
+.carry-item.selected{border-color:var(--purple);background:var(--purple-light)}
+.carry-check{width:18px;height:18px;border:.5px solid var(--border2);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--surface)}
+.carry-item.selected .carry-check{background:var(--purple);border-color:var(--purple)}
+.carry-task{font-size:13px;flex:1;line-height:1.4}
+.carry-meta{font-size:11px;color:var(--text3)}
+.modal-footer{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+
+/* 完了リスト */
+.completed-wrap{background:var(--surface);border:.5px solid var(--border);border-radius:var(--r);padding:16px}
+.completed-wrap h2{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.c-item{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:var(--surface2);border-radius:var(--rs);margin-bottom:7px;font-size:13px}
+.c-check{color:var(--teal);flex-shrink:0;margin-top:1px}
+.c-task{flex:1;line-height:1.4}
+.c-meta{font-size:11px;color:var(--text3);white-space:nowrap;text-align:right}
+.empty{font-size:13px;color:var(--text3);text-align:center;padding:18px}
+
+@media(max-width:480px){
+  .grid,.history-grid{gap:5px}
+  .cell{min-height:140px;padding:9px}
+  .timer-display{font-size:18px}
+  .topbar h1{font-size:14px}
+  .summary-bar{gap:10px}
+  .summary-value{font-size:15px}
+}
+</style>
+</head>
+<body>
+
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="ic-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="ic-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.657 18C4.085 18 2 15.993 2 13.517c0-2.084 1.49-3.839 3.545-4.306A5.5 5.5 0 0 1 16.44 8.5h.06a4 4 0 0 1 0 8H6.657z"/></symbol>
+  <symbol id="ic-laptop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19h18M5 6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v9H5z"/></symbol>
+  <symbol id="ic-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="ic-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="ic-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+  <symbol id="ic-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+  <symbol id="ic-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></symbol>
+  <symbol id="ic-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-4 4 4 4m-4-4h11a4 4 0 0 0 0-8h-1"/></symbol>
+  <symbol id="ic-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16m-10 4v6m4-6v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></symbol>
+  <symbol id="ic-forward" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 13l4-4-4-4M5 17v-3a4 4 0 0 1 4-4h10"/></symbol>
+  <symbol id="ic-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></symbol>
+  <symbol id="ic-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="ic-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+</svg>
+
+<!-- SETUP -->
+<div id="setupScreen">
+  <div class="setup-card">
+    <h1><svg class="ic" width="20" height="20"><use href="#ic-grid"/></svg>業務用ルーティンタイマー</h1>
+    <p>Firebase Realtime Database を使ってPC・iPhone・Androidでデータを自動同期できます。</p>
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">Firebase 設定（任意）</div>
+    <div class="field"><label>API Key</label><input id="cfg-apiKey" placeholder="AIzaSy..." autocomplete="off"></div>
+    <div class="field"><label>Auth Domain</label><input id="cfg-authDomain" placeholder="your-project.firebaseapp.com" autocomplete="off"></div>
+    <div class="field"><label>Project ID</label><input id="cfg-projectId" placeholder="your-project-id" autocomplete="off"></div>
+    <div class="field"><label>Database URL</label><input id="cfg-dbUrl" placeholder="https://your-project-default-rtdb.asia-southeast1.firebasedatabase.app" autocomplete="off"></div>
+    <div class="btn-row">
+      <button class="btn primary" onclick="connectFirebase()"><svg class="ic" width="15" height="15"><use href="#ic-cloud"/></svg> Firebaseで接続・開始</button>
+      <button class="btn" onclick="startLocal()"><svg class="ic" width="15" height="15"><use href="#ic-laptop"/></svg> ローカルのみで開始</button>
+    </div>
+    <p class="notice">※ Firebase設定はブラウザに保存されます。他端末でも同じ設定を入力すると自動同期されます。</p>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="mainApp">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <h1><svg class="ic" width="17" height="17"><use href="#ic-grid"/></svg>ルーティンタイマー</h1>
+      <div class="sync-pill"><div class="sync-dot" id="syncDot"></div><span id="syncLabel">未接続</span></div>
+    </div>
+    <button class="btn sm" onclick="showSetup()"><svg class="ic" width="14" height="14"><use href="#ic-settings"/></svg> 設定</button>
+  </div>
+
+  <!-- メインタブ -->
+  <div class="main-tabs">
+    <button class="main-tab active" id="scheduleTab" onclick="switchView('schedule')">
+      <svg class="ic" width="14" height="14"><use href="#ic-calendar"/></svg> スケジュール
+    </button>
+    <button class="main-tab" id="historyTab" onclick="switchView('history')">
+      <svg class="ic" width="14" height="14"><use href="#ic-history"/></svg> 履歴
+    </button>
+  </div>
+
+  <!-- スケジュールビュー -->
+  <div id="scheduleView">
+    <div class="summary-bar">
+      <div class="summary-item"><div class="summary-label">総設定時間</div><div class="summary-value" id="sumTotal">—</div></div>
+      <div class="summary-item"><div class="summary-label">残り時間</div><div class="summary-value remain" id="sumRemain">—</div></div>
+      <div class="summary-item"><div class="summary-label">完了</div><div class="summary-value done-count" id="sumDone">—</div></div>
+      <div class="summary-progress">
+        <div class="summary-label">進捗</div>
+        <div class="summary-progress-bar"><div class="summary-progress-fill" id="sumBar" style="width:0%"></div></div>
+        <div class="summary-pct" id="sumPct">0%</div>
+      </div>
+    </div>
+    <div class="date-tabs" id="dateTabs"></div>
+    <div class="grid" id="taskGrid"></div>
+    <div class="completed-wrap">
+      <h2><svg class="ic" width="15" height="15" style="color:var(--teal)"><use href="#ic-check-circle"/></svg> 完了タスク</h2>
+      <div id="completedList"><p class="empty">完了タスクはありません</p></div>
+    </div>
+  </div>
+
+  <!-- 履歴ビュー -->
+  <div id="historyView">
+    <div id="historyContent"></div>
+  </div>
+</div>
+
+<!-- 繰り越しモーダル -->
+<div class="modal-overlay" id="carryModal">
+  <div class="modal">
+    <h2><svg class="ic" width="16" height="16" style="color:var(--amber)"><use href="#ic-forward"/></svg> 翌日へ繰り越す</h2>
+    <p>繰り越したいタスクを選択してください。翌日の空きコマに追加されます。</p>
+    <div id="carryList"></div>
+    <div class="modal-footer">
+      <button class="btn sm" onclick="closeCarryModal()">キャンセル</button>
+      <button class="btn sm amber" onclick="execCarryover()"><svg class="ic" width="13" height="13"><use href="#ic-forward"/></svg> 繰り越す</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-database-compat.min.js"></script>
+<script>
+const LSKEY='routine_timer_v5', CFGKEY='routine_timer_cfg';
+let db=null, isFirebase=false, currentDateKey=null, dragSrc=null;
+let tickTimer=null, appData=null, carrySelected=new Set();
+let currentView='schedule';
+
+/* ── ユーティリティ ── */
+function ic(id,size){size=size||14;return`<svg class="ic" width="${size}" height="${size}"><use href="#ic-${id}"/></svg>`}
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function pad(n){return String(n).padStart(2,'0')}
+function fmtHM(sec){const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);return h>0?`${h}h${pad(m)}m`:`${m}分`}
+const DOW=['日','月','火','水','木','金','土'];
+
+/* ── 日付キー（YYYY-MM-DD） ── */
+function dateKey(d){return`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`}
+function todayKey(){return dateKey(new Date())}
+function keyToDate(k){const[y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d)}
+function fmtDateFromKey(k){const d=keyToDate(k);return`${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]})`}
+function fmtTime(d){return`${pad(d.getHours())}:${pad(d.getMinutes())}`}
+
+/* ── 表示用3日分のキー（今日・明日・明後日） ── */
+function getScheduleKeys(){
+  return[0,1,2].map(i=>{const d=new Date();d.setDate(d.getDate()+i);return dateKey(d);});
+}
+
+/* ── データ構造 ── */
+// appData = { schedule: { "2026-06-29": { cells:[...] }, ... }, completed: [...] }
+function defaultCell(order){
+  return{task:'',timerMin:30,elapsed:0,startedAt:null,running:false,completed:false,completedAt:null,order,carriedFrom:null};
+}
+function getOrCreateDay(key){
+  if(!appData.schedule) appData.schedule={};
+  if(!appData.schedule[key]){
+    appData.schedule[key]={cells:[]};
+    for(let i=0;i<9;i++) appData.schedule[key].cells[i]=defaultCell(i);
+  }
+  // 欠損補完
+  const cells=appData.schedule[key].cells;
+  for(let i=0;i<9;i++){
+    if(!cells[i]) cells[i]=defaultCell(i);
+    if(cells[i].startedAt===undefined) cells[i].startedAt=null;
+    if(cells[i].carriedFrom===undefined) cells[i].carriedFrom=null;
+  }
+  return appData.schedule[key];
+}
+function ensureData(){
+  if(!appData) appData={schedule:{},completed:[]};
+  if(!appData.schedule) appData.schedule={};
+  if(!appData.completed) appData.completed=[];
+  // 今後3日分は必ず初期化
+  getScheduleKeys().forEach(k=>getOrCreateDay(k));
+}
+
+/* ── 経過時間（バックグラウンド対応） ── */
+function getElapsed(c){
+  if(!c.running||!c.startedAt) return c.elapsed||0;
+  return(c.elapsed||0)+Math.floor((Date.now()-c.startedAt)/1000);
+}
+
+/* ── 保存 ── */
+function saveData(){
+  const p=JSON.parse(JSON.stringify(appData));
+  if(isFirebase&&db) db.ref('routineTimer').set(p);
+  else try{localStorage.setItem(LSKEY,JSON.stringify(p));}catch(e){}
+}
+function tickSave(){
+  if(!isFirebase) try{localStorage.setItem(LSKEY,JSON.stringify(appData));}catch(e){}
+}
+
+/* ── Firebase ── */
+function connectFirebase(){
+  const cfg={
+    apiKey:document.getElementById('cfg-apiKey').value.trim(),
+    authDomain:document.getElementById('cfg-authDomain').value.trim(),
+    projectId:document.getElementById('cfg-projectId').value.trim(),
+    databaseURL:document.getElementById('cfg-dbUrl').value.trim()
+  };
+  if(!cfg.apiKey||!cfg.databaseURL){alert('API Key と Database URL は必須です');return;}
+  try{
+    if(firebase.apps.length) firebase.apps.forEach(a=>a.delete());
+    firebase.initializeApp(cfg);
+    db=firebase.database();
+    isFirebase=true;
+    localStorage.setItem(CFGKEY,JSON.stringify(cfg));
+    document.getElementById('syncDot').classList.add('on');
+    document.getElementById('syncLabel').textContent='同期中';
+    let firstLoad=true;
+    db.ref('routineTimer').on('value',snap=>{
+      if(snap.exists()){appData=snap.val();}else{appData={schedule:{},completed:[]};}
+      ensureData();
+      if(firstLoad){firstLoad=false;launchApp();}else{renderAll();}
+    });
+  }catch(e){alert('Firebase接続エラー: '+e.message);}
+}
+function startLocal(){
+  isFirebase=false;
+  try{const s=localStorage.getItem(LSKEY);if(s)appData=JSON.parse(s);}catch(e){}
+  if(!appData) appData={schedule:{},completed:[]};
+  ensureData();
+  document.getElementById('syncDot').classList.remove('on');
+  document.getElementById('syncLabel').textContent='ローカル';
+  launchApp();
+}
+function showSetup(){
+  stopTick();
+  document.getElementById('setupScreen').style.display='flex';
+  document.getElementById('mainApp').style.display='none';
+}
+function launchApp(){
+  currentDateKey=todayKey();
+  document.getElementById('setupScreen').style.display='none';
+  document.getElementById('mainApp').style.display='block';
+  renderAll();startTick();
+}
+
+/* ── ビュー切り替え ── */
+function switchView(view){
+  currentView=view;
+  document.getElementById('scheduleView').style.display=view==='schedule'?'block':'none';
+  document.getElementById('historyView').style.display=view==='history'?'block':'none';
+  document.getElementById('scheduleTab').classList.toggle('active',view==='schedule');
+  document.getElementById('historyTab').classList.toggle('active',view==='history');
+  if(view==='history') renderHistory();
+}
+
+/* ── 日付タブ ── */
+function buildTabs(){
+  const el=document.getElementById('dateTabs');
+  el.innerHTML='';
+  const keys=getScheduleKeys();
+  keys.forEach((k,i)=>{
+    const wrap=document.createElement('div');
+    wrap.className='tab-wrap';
+    const t=document.createElement('button');
+    const label=(i===0?'今日 ':i===1?'明日 ':'明後日 ')+fmtDateFromKey(k);
+    t.className='tab'+(k===currentDateKey?' active':'');
+    t.textContent=label;
+    t.onclick=()=>{currentDateKey=k;buildTabs();renderGrid();renderSummary();renderCompleted();};
+    wrap.appendChild(t);
+    if(i<2){
+      const cb=document.createElement('button');
+      cb.className='btn sm amber carryover-btn';
+      cb.innerHTML=ic('forward',12)+' 繰り越し';
+      cb.onclick=(e)=>{e.stopPropagation();openCarryModal(k,keys[i+1]);};
+      wrap.appendChild(cb);
+    }
+    el.appendChild(wrap);
+  });
+}
+
+/* ── Tick ── */
+function startTick(){
+  stopTick();
+  tickTimer=setInterval(()=>{
+    let hasRunning=false;
+    if(!appData.schedule) return;
+    Object.values(appData.schedule).forEach(day=>{
+      if(!day.cells) return;
+      day.cells.forEach(c=>{
+        if(c&&c.running&&!c.completed){
+          hasRunning=true;
+          if(getElapsed(c)>=(c.timerMin||30)*60){
+            c.elapsed=(c.timerMin||30)*60;c.startedAt=null;c.running=false;
+            saveData();
+          }
+        }
+      });
+    });
+    if(hasRunning){renderGrid();renderSummary();}
+    tickSave();
+  },1000);
+}
+function stopTick(){if(tickTimer){clearInterval(tickTimer);tickTimer=null;}}
+
+/* ── サマリー ── */
+function renderSummary(){
+  const day=getOrCreateDay(currentDateKey);
+  let totalSec=0,remainSec=0,doneCount=0,activeCount=0;
+  day.cells.forEach(c=>{
+    if(!c.task&&!c.running&&!(c.elapsed>0)) return;
+    const t=(c.timerMin||30)*60;
+    totalSec+=t;activeCount++;
+    if(c.completed){doneCount++;}
+    else{remainSec+=Math.max(0,t-getElapsed(c));}
+  });
+  const pct=totalSec>0?Math.round(((totalSec-remainSec)/totalSec)*100):0;
+  document.getElementById('sumTotal').textContent=activeCount>0?fmtHM(totalSec):'—';
+  document.getElementById('sumRemain').textContent=activeCount>0?fmtHM(remainSec):'—';
+  document.getElementById('sumDone').textContent=activeCount>0?`${doneCount}/${activeCount}`:'—';
+  document.getElementById('sumBar').style.width=pct+'%';
+  document.getElementById('sumPct').textContent=pct+'%';
+}
+
+/* ── タイマー操作 ── */
+function getCiBySlot(slot){
+  const cells=getOrCreateDay(currentDateKey).cells;
+  const ci=cells.findIndex(c=>(c.order??cells.indexOf(c))===slot);
+  return ci>=0?ci:slot;
+}
+function startTimer(slot){
+  const ci=getCiBySlot(slot);
+  const c=getOrCreateDay(currentDateKey).cells[ci];
+  c.startedAt=Date.now();c.running=true;
+  renderGrid();saveData();
+}
+function pauseTimer(slot){
+  const ci=getCiBySlot(slot);
+  const c=getOrCreateDay(currentDateKey).cells[ci];
+  c.elapsed=getElapsed(c);c.startedAt=null;c.running=false;
+  saveData();renderGrid();
+}
+function resetTimer(slot){
+  const ci=getCiBySlot(slot);
+  const c=getOrCreateDay(currentDateKey).cells[ci];
+  c.elapsed=0;c.startedAt=null;c.running=false;
+  saveData();renderGrid();
+}
+function completeTask(slot){
+  const ci=getCiBySlot(slot);
+  const c=getOrCreateDay(currentDateKey).cells[ci];
+  if(c.running){c.elapsed=getElapsed(c);c.startedAt=null;}
+  c.running=false;c.completed=true;c.completedAt=new Date().toISOString();
+  appData.completed.unshift({task:c.task||'（無題）',completedAt:c.completedAt,dateLabel:fmtDateFromKey(currentDateKey)});
+  saveData();renderGrid();renderCompleted();renderSummary();
+}
+function restoreTask(slot){
+  const ci=getCiBySlot(slot);
+  const c=getOrCreateDay(currentDateKey).cells[ci];
+  const task=c.task,ca=c.completedAt;
+  c.completed=false;c.completedAt=null;c.elapsed=0;c.startedAt=null;c.running=false;
+  const idx=appData.completed.findIndex(x=>x.task===task&&x.completedAt===ca);
+  if(idx>=0) appData.completed.splice(idx,1);
+  saveData();renderGrid();renderCompleted();renderSummary();
+}
+
+/* ── 繰り越し ── */
+function openCarryModal(fromKey,toKey){
+  carrySelected=new Set();
+  const cells=getOrCreateDay(fromKey).cells;
+  const incomplete=cells.filter(c=>c.task&&!c.completed);
+  if(incomplete.length===0){alert('繰り越せる未完了タスクがありません');return;}
+  const nextCells=getOrCreateDay(toKey).cells;
+  const emptySlots=nextCells.filter(c=>!c.task).length;
+  if(emptySlots===0){alert('翌日にタスクを入れる空きコマがありません');return;}
+  const list=document.getElementById('carryList');
+  list.innerHTML='';
+  incomplete.forEach((c,i)=>{
+    const div=document.createElement('div');
+    div.className='carry-item selected';
+    div.innerHTML=`<div class="carry-check">${ic('check',11)}</div><div class="carry-task">${escHtml(c.task)}</div><div class="carry-meta">${c.timerMin||30}分</div>`;
+    carrySelected.add(i);
+    div.onclick=()=>{
+      if(carrySelected.has(i)){carrySelected.delete(i);div.classList.remove('selected');}
+      else{carrySelected.add(i);div.classList.add('selected');}
+    };
+    list.appendChild(div);
+  });
+  document.getElementById('carryModal').dataset.fromKey=fromKey;
+  document.getElementById('carryModal').dataset.toKey=toKey;
+  document.getElementById('carryModal').classList.add('open');
+}
+function closeCarryModal(){document.getElementById('carryModal').classList.remove('open');carrySelected=new Set();}
+function execCarryover(){
+  const fromKey=document.getElementById('carryModal').dataset.fromKey;
+  const toKey=document.getElementById('carryModal').dataset.toKey;
+  const cells=getOrCreateDay(fromKey).cells;
+  const nextCells=getOrCreateDay(toKey).cells;
+  const incomplete=cells.filter(c=>c.task&&!c.completed);
+  let carried=0;
+  carrySelected.forEach(i=>{
+    const src=incomplete[i];if(!src)return;
+    const emptyCell=nextCells.find(c=>!c.task);
+    if(!emptyCell){alert(`空きコマがないため${carried}件のみ繰り越しました`);return;}
+    emptyCell.task=src.task;emptyCell.timerMin=src.timerMin;
+    emptyCell.elapsed=0;emptyCell.startedAt=null;emptyCell.running=false;
+    emptyCell.completed=false;emptyCell.completedAt=null;
+    emptyCell.carriedFrom=fmtDateFromKey(fromKey);
+    carried++;
+  });
+  saveData();closeCarryModal();
+  currentDateKey=toKey;buildTabs();renderGrid();renderSummary();renderCompleted();
+  if(carried>0) setTimeout(()=>alert(`${carried}件を${fmtDateFromKey(toKey)}に繰り越しました`),100);
+}
+
+/* ── グリッド描画 ── */
+function renderAll(){buildTabs();renderGrid();renderSummary();renderCompleted();}
+function renderGrid(){
+  const grid=document.getElementById('taskGrid');
+  grid.innerHTML='';
+  const day=getOrCreateDay(currentDateKey);
+  const cells=day.cells;
+  const slotMap=Array(9).fill(null);
+  cells.forEach((c,i)=>{const o=c.order??i;if(o<9&&slotMap[o]===null)slotMap[o]=i;});
+
+  for(let slot=0;slot<9;slot++){
+    const ci=slotMap[slot]??slot;
+    const c=cells[ci]||defaultCell(slot);
+    const cell=document.createElement('div');
+    const isCarried=!!c.carriedFrom;
+    cell.className='cell'+(c.completed?' done':isCarried?' carried':'');
+    cell.dataset.slot=slot;
+    cell.draggable=true;
+    cell.addEventListener('dragstart',e=>{dragSrc=slot;e.dataTransfer.effectAllowed='move';setTimeout(()=>cell.classList.add('dragging'),0);});
+    cell.addEventListener('dragend',()=>{cell.classList.remove('dragging');document.querySelectorAll('.cell').forEach(x=>x.classList.remove('drag-over'));});
+    cell.addEventListener('dragover',e=>{e.preventDefault();cell.classList.add('drag-over');});
+    cell.addEventListener('dragleave',()=>cell.classList.remove('drag-over'));
+    cell.addEventListener('drop',e=>{e.preventDefault();cell.classList.remove('drag-over');if(dragSrc===null||dragSrc===slot)return;swapSlots(dragSrc,slot);dragSrc=null;});
+
+    const total=(c.timerMin||30)*60;
+    const elapsed=getElapsed(c);
+    const rem=Math.max(0,total-elapsed);
+    const pct=total>0?Math.min(100,(elapsed/total)*100):0;
+    const isWarn=rem<total*.2&&rem>0;
+    const isDanger=(rem<60&&rem>0)||(rem===0&&elapsed>0);
+    const tcls=isDanger?'danger':isWarn?'warn':'';
+    const mm=Math.floor(rem/60),ss=rem%60;
+    const carriedBadge=isCarried?`<span class="carried-badge">↩ ${c.carriedFrom}より</span>`:'';
+
+    if(c.completed){
+      cell.innerHTML=`
+        <div class="cell-label">TASK ${slot+1} ${carriedBadge}</div>
+        <div class="task-done-text">${escHtml(c.task||'（無題）')}</div>
+        <div class="timer-area">
+          <div class="timer-display done-label">${ic('check-circle',15)} 完了</div>
+          <div class="timer-controls"><button class="btn sm" onclick="restoreTask(${slot})">${ic('back',13)} 戻す</button></div>
+        </div>`;
+    }else{
+      cell.innerHTML=`
+        <div class="cell-label">TASK ${slot+1} ${carriedBadge}</div>
+        <textarea class="task-input" placeholder="タスクを入力...">${escHtml(c.task||'')}</textarea>
+        <div class="timer-area">
+          <div class="timer-bar-wrap"><div class="timer-bar-fill ${tcls}" style="width:${100-pct}%"></div></div>
+          <div class="timer-display ${tcls}">${pad(mm)}:${pad(ss)}</div>
+          <div class="timer-controls">
+            <input type="number" class="min-input" value="${c.timerMin||30}" min="1" max="999" ${c.running?'disabled':''}>
+            <span class="min-label">分</span>
+            ${!c.running
+              ?`<button class="btn sm primary" onclick="startTimer(${slot})">${ic('play',13)} 開始</button>`
+              :`<button class="btn sm danger" onclick="pauseTimer(${slot})">${ic('pause',13)} 中断</button>`}
+            <button class="btn sm icon-btn" onclick="resetTimer(${slot})" title="リセット">${ic('refresh',13)}</button>
+            <button class="btn sm success" onclick="completeTask(${slot})">${ic('check',13)} 完了</button>
+          </div>
+        </div>`;
+      const ta=cell.querySelector('.task-input');
+      ta.addEventListener('input',e=>{getOrCreateDay(currentDateKey).cells[ci].task=e.target.value;});
+      ta.addEventListener('blur',()=>saveData());
+      const mi=cell.querySelector('.min-input');
+      mi.addEventListener('change',e=>{
+        const v=Math.max(1,parseInt(e.target.value)||30);
+        const c2=getOrCreateDay(currentDateKey).cells[ci];
+        c2.timerMin=v;c2.elapsed=0;c2.startedAt=null;c2.running=false;
+        saveData();renderGrid();renderSummary();
+      });
+    }
+    grid.appendChild(cell);
+  }
+}
+
+/* ── スワップ ── */
+function swapSlots(a,b){
+  const cells=getOrCreateDay(currentDateKey).cells;
+  const find=s=>cells.findIndex(c=>(c.order??cells.indexOf(c))===s);
+  const ai=find(a),bi=find(b);
+  const oa=ai>=0?(cells[ai].order??ai):a;
+  const ob=bi>=0?(cells[bi].order??bi):b;
+  if(ai>=0)cells[ai].order=ob;
+  if(bi>=0)cells[bi].order=oa;
+  saveData();renderGrid();
+}
+
+/* ── 完了リスト ── */
+function renderCompleted(){
+  const el=document.getElementById('completedList');
+  // 現在の日付のみ表示
+  const items=(appData.completed||[]).filter(x=>x.dateLabel===fmtDateFromKey(currentDateKey));
+  if(items.length===0){el.innerHTML='<p class="empty">完了タスクはありません</p>';return;}
+  el.innerHTML=items.map((item,i)=>{
+    const realIdx=appData.completed.indexOf(item);
+    return`<div class="c-item">
+      <span class="c-check">${ic('check-circle',16)}</span>
+      <div class="c-task">${escHtml(item.task||'（無題）')}</div>
+      <div class="c-meta">${fmtTime(new Date(item.completedAt))}</div>
+      <button class="btn sm icon-btn" onclick="deleteCompleted(${realIdx})" title="削除">${ic('trash',13)}</button>
+    </div>`;
+  }).join('');
+}
+function deleteCompleted(i){appData.completed.splice(i,1);saveData();renderCompleted();}
+
+/* ── 履歴ビュー ── */
+function renderHistory(){
+  const el=document.getElementById('historyContent');
+  if(!appData.schedule||Object.keys(appData.schedule).length===0){
+    el.innerHTML='<p class="history-empty">履歴データがありません</p>';return;
+  }
+  // 今日より前の日付を降順で最大30日
+  const today=todayKey();
+  const pastKeys=Object.keys(appData.schedule)
+    .filter(k=>k<today)
+    .sort((a,b)=>b.localeCompare(a))
+    .slice(0,30);
+
+  if(pastKeys.length===0){el.innerHTML='<p class="history-empty">過去の履歴はありません</p>';return;}
+
+  el.innerHTML=pastKeys.map(k=>{
+    const day=appData.schedule[k];
+    const cells=day.cells||[];
+    const filled=cells.filter(c=>c.task);
+    const done=cells.filter(c=>c.task&&c.completed);
+    const pct=filled.length>0?Math.round((done.length/filled.length)*100):0;
+    const badgeCls=filled.length===0?'none':(pct===100?'':(pct<50?'none':'partial'));
+    const badgeText=filled.length===0?'データなし':`${done.length}/${filled.length}完了 (${pct}%)`;
+
+    const cellsHtml=cells.map((c,i)=>{
+      if(!c.task) return`<div class="history-cell" style="opacity:.35"><div class="history-cell-task" style="color:var(--text3)">（空）</div></div>`;
+      const elapsed=c.elapsed||0;
+      const total=(c.timerMin||30)*60;
+      const usedMin=Math.floor(elapsed/60);
+      return`<div class="history-cell ${c.completed?'done':'undone'}">
+        <div class="history-cell-task">${escHtml(c.task)}</div>
+        <div class="history-cell-meta">
+          <span>${c.timerMin||30}分設定</span>
+          ${elapsed>0?`<span>${usedMin}分使用</span>`:''}
+          ${c.completed?`<span style="color:var(--teal)">✓ ${c.completedAt?fmtTime(new Date(c.completedAt)):'完了'}</span>`:'<span style="color:var(--text3)">未完了</span>'}
+        </div>
+      </div>`;
+    }).join('');
+
+    return`<div class="history-day">
+      <div class="history-day-header" onclick="toggleHistoryDay('hd-${k}',this)">
+        <div class="history-day-title">
+          <svg class="ic" width="14" height="14"><use href="#ic-calendar"/></svg>
+          ${fmtDateFromKey(k)}
+          <span class="history-badge ${badgeCls}">${badgeText}</span>
+        </div>
+        <span class="chevron open">▾</span>
+      </div>
+      <div id="hd-${k}" class="history-grid">${cellsHtml}</div>
+    </div>`;
+  }).join('');
+}
+function toggleHistoryDay(id,header){
+  const el=document.getElementById(id);
+  const ch=header.querySelector('.chevron');
+  if(el.style.display==='none'){el.style.display='grid';ch.classList.add('open');}
+  else{el.style.display='none';ch.classList.remove('open');}
+}
+
+/* ── 画面復帰時 ── */
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&appData){renderGrid();renderSummary();}
+});
+document.getElementById('carryModal').addEventListener('click',function(e){if(e.target===this)closeCarryModal();});
+
+/* ── 初期化 ── */
+window.addEventListener('load',()=>{
+  try{
+    const saved=localStorage.getItem(CFGKEY);
+    if(saved){
+      const cfg=JSON.parse(saved);
+      document.getElementById('cfg-apiKey').value=cfg.apiKey||'';
+      document.getElementById('cfg-authDomain').value=cfg.authDomain||'';
+      document.getElementById('cfg-projectId').value=cfg.projectId||'';
+      document.getElementById('cfg-dbUrl').value=cfg.databaseURL||'';
+    }
+  }catch(e){}
+});
+</script>
+</body>
+</html>
